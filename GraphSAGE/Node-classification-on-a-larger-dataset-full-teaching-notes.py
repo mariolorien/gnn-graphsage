@@ -188,7 +188,6 @@ class GraphSAGE(torch.nn.Module):
 
         Input:
         one feature vector per node of size in_channels
-
         Output:
         one hidden representation per node of size hidden_channels
         """
@@ -202,6 +201,16 @@ class GraphSAGE(torch.nn.Module):
 
         Output:
         one output vector per node of size out_channels
+        """
+        
+        """
+        What is the difference between using GCNConv and using  SAGEConv? 
+        
+        GCN: “blend me and my neighbours together first, using normalization”
+        GraphSAGE: “make one summary of my neighbours, keep my own features separate, then combine the two”
+  
+        CHECK THE MARKDWON FILE  GNCCONV VS GRAPHSAGE EXPLANING THE DIFFERENCES BETWEEN THE BOTH OF THEM 
+        
         """
 
     def forward(self, x, edge_index):
@@ -315,6 +324,25 @@ L2 regularisation, used to discourage overly large weights
 criterion_node_cls = torch.nn.BCEWithLogitsLoss()
 """
 Loss function for multi-label classification.
+WE USE CROSSENTROPY LOSS WHEN THERE IS ONLY ONE CORRECT ANSWER (CAT, DOG, BIRD)
+WE USE BCEWITHLOGITSLOSS WHEN EACH EXMAPLE CAN BELONG TO MULITPLE CLASSES AT ONCE. 
+
+
+In our example: 
+Each node has 121 possible labels
+Each label is a separate yes/no question
+
+For one node, the model might output something like:
+
+out = [2.1, -1.4, 0.7, -3.0, ...]
+
+That means:
+label 1 → probably yes
+label 2 → probably no
+label 3 → maybe yes
+label 4 → strongly no
+
+
 
 Why BCEWithLogitsLoss?
 Because each class is treated independently:
@@ -323,6 +351,19 @@ for each node, each class can be either present or absent.
 Important:
 this loss expects raw logits, so we do NOT apply sigmoid inside the model.
 The sigmoid is handled internally by BCEWithLogitsLoss.
+
+Basically BCE is sigmoid + Binary Cross Entropy 
+
+Sigmoid squashes the raw logit between 0 and 1, then this gets interpreted 
+as a probability, 
+then the binary cross-entropy checks for each label separately how close 
+that probability is to the true answer 0 or 1. 
+
+So for one node with 121 labels:
+
+the model outputs 121 logits
+sigmoid converts them into 121 probabilities
+BCE compares those 121 probabilities with the 121 true labels
 """
 
 
@@ -452,7 +493,8 @@ def evaluate_node_cls(loader):
             Compute raw output logits for the nodes in this batch.
             """
 
-            preds = (out > 0).float()
+            preds = (out > 0).float() # if the logit is > 0, predict 1; otherweise predict 0
+            #the .float() converts True -> 1.0 , False ->0 
             """
             Convert logits into binary predictions.
 
@@ -461,6 +503,12 @@ def evaluate_node_cls(loader):
 
             A logit > 0 corresponds to a sigmoid probability > 0.5
             A logit < 0 corresponds to a sigmoid probability < 0.5
+            
+            So this line is equivalent to saying:
+
+            predict label 1 if probability > 0.5
+
+            without explicitly calling sigmoid.
             """
 
             all_preds.append(preds.cpu())
@@ -495,11 +543,61 @@ def evaluate_node_cls(loader):
     """
     Return the evaluation score.
     """
+    """
+    What is Micro F1
 
+    """
 
 epochs_node_cls = 50
 """
-Number of training epochs.
+    Number of training epochs.
+    Micro F1 does one global count first, instead of computing a separate F1 for each label and averaging later.
+
+    So micro F1 says:
+
+    treat every node-label decision as one big pool of binary predictions
+
+    Micro F1 measures performance by looking at all label decisions together before computing precision and recall.
+
+    In our PPI case, every node has 121 yes/no labels. So the model makes a huge number of binary decisions:
+
+    node 1, label 1
+    node 1, label 2
+    ...
+    node 2, label 1
+    and so on
+
+    How micro F1 works?
+
+    First, across all nodes and all labels, it counts:
+
+    TP = predicted 1 and true label is 1 (True Positive)
+    FP = predicted 1 but true label is 0 (False Positive)
+    FN = predicted 0 but true label is 1 (False Negative)
+
+    Then it computes:
+
+    precision = TP / (TP + FP)
+    recall    = TP / (TP + FN)
+
+    Then:
+
+    F1 = 2 * precision * recall / (precision + recall)
+
+    Suppose across all nodes and labels we get:
+
+    TP = 80
+    FP = 20
+    FN = 10
+
+    Then:
+
+    precision = 80 / (80 + 20) = 0.80
+    recall    = 80 / (80 + 10) = 0.889
+
+    So:
+
+    F1 ≈ 2 * 0.80 * 0.889 / (0.80 + 0.889) ≈ 0.842
 """
 
 print("\n--- Training GraphSAGE for Node Classification ---")
