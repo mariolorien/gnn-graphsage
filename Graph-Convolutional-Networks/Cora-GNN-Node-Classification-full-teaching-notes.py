@@ -73,10 +73,11 @@ class GCN(torch.nn.Module):
         #First Convolution Layer 
         x = self.conv1(x,edge_index)
         """
-        What this line does it takes through our list, learns how the nodes are connected 
+        What this line does? It takes through our list, learns how the nodes are connected 
         -using edge_index- and the node features. 
         
-        Say that we have 6 hidden channels and 300 nodes,  then after this first convolution 
+        Say that we have 6 hidden channels and 300 nodes and our nodes had 3 features each one:
+        degree, normalised degree and log degree,  then after this first convolution 
         we will have a matrix that goes from [300, 3] to [300,6]
         # 
         # [31.0000, 0.4627, 3.4657] -> [ 0.84, -1.12, 0.37, 2.05, -0.49, 1.31]
@@ -139,12 +140,14 @@ class GCN(torch.nn.Module):
         For example, if we are doing node classification and we have 3 possible labels 
         then our output channels must be 3. 
        
-        This is why when we instantiate our model, we set the out channels equal 
-        to the number of classes and the in channels to the number of features
+        This is why when we instantiate our model, we set the out-channels equal 
+        to the number of classes and the in-channels equals to the number of features
         
         Finally, the weight matrix is already part of our model through GCNConv;
         we do not need to define it separately.
+        
         IMPORTANT: THE SAME WEIGHT IS SHARED ACROSS ALL NODES. 
+        
         So the weights belong to the layer, not the individual nodes. 
         If a layer maps: 
         
@@ -200,13 +203,12 @@ ADAM will use the actual weight and biases stored inside the model.
 In PyTorch, optimizers are constructed from an iterable of Parameter objects
 and model.parameters() provide exactly that. 
 
- We can inspect them by running: 
+We can inspect them by running: 
  
 for name, p in model.named_parameters():
     print(name, p.shape)
 
-"""
-"""
+
 The following table shows the evolution of the shape, after each passage:
 
 input x                [300, 3]
@@ -229,7 +231,7 @@ def train():
     """
     Why do we need to tell PyTorch that we are training now? 
     This matters because some layers behave differently during training and testing. 
-    For example, dropout is active during trainig and off during evaluation 
+    For example, dropout is active during trainig and off during evaluation. 
     
     """
     optimizer.zero_grad() #Clear gradients from previous step 
@@ -263,7 +265,8 @@ def train():
     (1) It aggregates information from neighbours
     (2) It applies a learned transformation to that aggregated information
 
-    So after the first layer, each node no longer represents only its own original features. Its new representation has been influenced by its local neighbourhood.
+    So after the first layer, each node no longer represents only its own original features. 
+    Its new representation has been influenced by its local neighbourhood.
 
     Then:
 
@@ -308,11 +311,12 @@ def train():
     loss = criterion(out[data.train_mask], data.y[data.train_mask])
 
     """
-    This line above save in the loss variable the nodes in out splitted 
-    for training and pair each of them with its respective label. 
+    This line above saves, inside the loss variable, the nodes 
+    for training and pair each of them with its respective boolean value. 
     
     Recall that we have defined what our criterion was above : CrossEntropy Loss
-    This means: 
+    
+    CrossEntropy means: 
     
     
     CrossEntropyLoss compares the raw logits predicted by the model
