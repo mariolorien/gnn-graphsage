@@ -420,14 +420,272 @@ explainer = Explainer(
 )
 
 """
-Generate explanation for one node.
+The class Explainer is a Python Wrapper (an outer layer that uses another object of function 
+internally while providing a simpler or more controlled interface to the user)
+
+In our case, the Explainer class connects the trained GNN model, and explantion algorithm (like GNNExplainer or PGE)
+the type of prediction task and the type of explanation that we want. 
+
+
+
 """
+"""
+PARAMETERS OF THE PYTORCH GEOMETRIC EXPLAINER CLASS
+===================================================
+
+The Explainer class is a wrapper that connects:
+
+- the trained GNN model
+- the chosen explanation algorithm
+- the prediction-task configuration
+- the mask configuration
+
+Its role is to provide one clean interface for generating explanations
+from graph neural networks.
+
+Below is the meaning of each parameter in the Explainer block.
+
+
+1) model=model
+---------------
+This is the trained GNN that we want to explain.
+
+In our script, this is the GCN model that has already been trained
+for node classification.
+
+So this parameter answers the question:
+
+    "Which neural network are we trying to explain?"
+
+
+2) algorithm=GNNExplainer(epochs=200)
+--------------------------------------
+This specifies the explanation method that will be used.
+
+In our case, the chosen algorithm is GNNExplainer.
+
+GNNExplainer tries to identify:
+- the most important graph structure
+- the most important node features
+
+that are sufficient to preserve the model's prediction.
+
+The argument epochs=200 means that the explainer will optimize
+its explanation masks for 200 iterations.
+
+So this parameter answers:
+
+    "Which explainability method should be used?"
+
+
+3) explanation_type="model"
+----------------------------
+This tells the Explainer what exactly should be explained.
+
+There are two common possibilities:
+
+- "model"
+- "phenomenon"
+
+If explanation_type="model", the explainer tries to explain
+the model's own prediction.
+
+That means the question becomes:
+
+    "Why did the model predict this class?"
+
+If explanation_type="phenomenon", the explanation would instead
+focus on the target phenomenon or ground-truth label.
+
+In our script, we use:
+
+    explanation_type="model"
+
+So we are asking:
+
+    "Why did the trained GCN predict this class for this node?"
+
+
+4) node_mask_type="attributes"
+-------------------------------
+This tells the Explainer what kind of node-side mask it should learn.
+
+Possible mask types can include:
+- masking whole nodes
+- masking features
+- masking attributes in different ways
+
+In our case, node_mask_type="attributes" means the explainer should
+learn feature importance.
+
+So the explanation will include information about:
+
+- which input features of the node were most important
+
+This is what produces the feature-importance output and the
+feature-importance plot.
+
+So this parameter answers:
+
+    "Do we want to explain which node features mattered?"
+
+
+5) edge_mask_type="object"
+---------------------------
+This tells the Explainer what kind of edge-side mask it should learn.
+
+In this case, edge_mask_type="object" means the explainer should
+learn an importance value for each edge.
+
+So the explanation will include information about:
+
+- which edges in the local graph neighbourhood were most important
+
+This is what produces the structural graph explanation.
+
+So this parameter answers:
+
+    "Do we want to explain which graph connections mattered?"
+
+
+6) model_config=dict(...)
+--------------------------
+This is a dictionary describing how the model should be interpreted
+by the Explainer.
+
+The Explainer needs this because it must understand:
+- what type of task the model is solving
+- at what level the prediction is made
+- what kind of output the model returns
+
+In our script, model_config contains three parts:
+
+    mode
+    task_level
+    return_type
+
+
+6a) mode="multiclass_classification"
+-------------------------------------
+This tells the Explainer that the model is solving a multiclass
+classification problem.
+
+That means:
+- there are several possible classes
+- the model predicts one class per node
+
+This is different from:
+- binary classification
+- regression
+
+So this parameter answers:
+
+    "What kind of machine-learning task is this model solving?"
+
+
+6b) task_level="node"
+----------------------
+This tells the Explainer that the task is at the node level.
+
+That means the model is making predictions for individual nodes,
+not for:
+- whole graphs
+- edges
+
+So this parameter answers:
+
+    "Are we explaining node predictions, edge predictions,
+     or graph predictions?"
+
+In our script, we are explaining node classification.
+
+
+6c) return_type="log_probs"
+----------------------------
+This tells the Explainer what kind of output the model returns.
+
+In our GCN script, the model ends with:
+
+    F.log_softmax(x, dim=1)
+
+So the output of the model is a tensor of log-probabilities.
+
+That is why we set:
+
+    return_type="log_probs"
+
+This is important because the Explainer must interpret the model output
+correctly when generating explanations.
+
+So this parameter answers:
+
+    "What exactly does the model return when we call it?"
+
+
+7) threshold_config
+--------------------
+This parameter was not used in our script, but it is part of the
+general Explainer framework.
+
+It can be used to control post-processing of explanation masks.
+
+For example, thresholding can help:
+- keep only the most important edges
+- keep only the top-k most important features
+- make explanations sparser and easier to read
+
+So this parameter would answer:
+
+    "After learning the explanation mask, do we want to trim or
+     threshold it?"
+
+
+FULL INTERPRETATION OF OUR EXPLAINER BLOCK
+==========================================
+
+When we write:
+
+    explainer = Explainer(
+        model=model,
+        algorithm=GNNExplainer(epochs=200),
+        explanation_type="model",
+        node_mask_type="attributes",
+        edge_mask_type="object",
+        model_config=dict(
+            mode="multiclass_classification",
+            task_level="node",
+            return_type="log_probs",
+        ),
+    )
+
+we are telling PyTorch Geometric:
+
+- use this trained GCN model
+- explain it with GNNExplainer
+- explain the model's own prediction
+- explain both node-feature importance and edge importance
+- treat the problem as multiclass node classification
+- and interpret the model output as log-probabilities
+
+In simple words, this means:
+
+    "Explain why this trained node-classification GCN made its prediction,
+     showing both which features mattered and which graph connections
+     mattered."
+"""
+
 explanation = explainer(
     data.x,
     data.edge_index,
     index=node_idx,
 )
 
+
+"""
+In the line above the call/run the instantiated object
+Although explainer is an object, PyG lets use it almost like a function
+We are calling and object that has been made "callable"
+"""
 print("Explanation object:")
 print(explanation)
 print()
